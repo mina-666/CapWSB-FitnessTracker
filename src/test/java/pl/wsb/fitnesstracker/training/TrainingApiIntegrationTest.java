@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import pl.wsb.fitnesstracker.IntegrationTest;
 import pl.wsb.fitnesstracker.IntegrationTestBase;
@@ -99,9 +100,10 @@ class TrainingApiIntegrationTest extends IntegrationTestBase {
 
         User user1 = existingUser(generateClient());
         Training training1 = persistTraining(generateTraining(user1));
+        System.out.println(">>> TRAINING ID: " + training1.getId());
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS+00:00");
         sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        mockMvc.perform(get("/v1/trainings/{userId}", user1.getId()).contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/v1/trainings/user/{userId}", user1.getId()).contentType(MediaType.APPLICATION_JSON))
                 .andDo(log())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
@@ -174,7 +176,9 @@ class TrainingApiIntegrationTest extends IntegrationTestBase {
 
         String requestBody = """
                 {
-                    "userId": "%s",
+                    "user": {
+                        "id": %s
+                    },
                     "startTime": "2024-04-01T11:00:00",
                     "endTime": "2024-04-01T11:00:00",
                     "activityType": "RUNNING",
@@ -182,6 +186,7 @@ class TrainingApiIntegrationTest extends IntegrationTestBase {
                     "averageSpeed": 8.2
                 }
                 """.formatted(user1.getId());
+
         mockMvc.perform(post("/v1/trainings").contentType(MediaType.APPLICATION_JSON).content(requestBody))
                 .andDo(log())
                 .andExpect(status().isCreated())
@@ -196,20 +201,25 @@ class TrainingApiIntegrationTest extends IntegrationTestBase {
 
     @Test
     void shouldUpdateTraining_whenUpdatingTraining() throws Exception {
+        User user1 = existingUser(generateClient()); // <-- DODAJ TO
+        Training training1 = persistTraining(generateTrainingWithActivityType(user1, ActivityType.RUNNING)); // <-- I TO
 
-        User user1 = existingUser(generateClient());
-        Training training1 = persistTraining(generateTrainingWithActivityType(user1, ActivityType.RUNNING));
         String requestBody = """
                 {
-                "userId": "%s",
-                "startTime": "2022-04-01T10:00:00",
-                "endTime": "2022-04-01T11:00:00",
-                "activityType": "TENNIS",
-                "distance": 0.0,
-                "averageSpeed": 0.0
+                    "user": {
+                        "id": %s
+                    },
+                    "startTime": "2022-04-01T10:00:00",
+                    "endTime": "2022-04-01T11:00:00",
+                    "activityType": "TENNIS",
+                    "distance": 0.0,
+                    "averageSpeed": 0.0
                 }
                 """.formatted(user1.getId());
-        mockMvc.perform(put("/v1/trainings/{trainingId}", training1.getId()).contentType(MediaType.APPLICATION_JSON).content(requestBody))
+
+        ResultActions resultActions = mockMvc.perform(put("/v1/trainings/{trainingId}", training1.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
                 .andDo(log())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.id").value(user1.getId()))
@@ -220,7 +230,5 @@ class TrainingApiIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.distance").value(0.0))
                 .andExpect(jsonPath("$.averageSpeed").value(0.0));
     }
-
-
 }
 
